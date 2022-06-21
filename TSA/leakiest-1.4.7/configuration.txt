@@ -1,0 +1,66 @@
+////// Configuration file for many purposes //////
+// Usage:
+// java -jar leakiEst.jar -cfg configuration.txt
+//
+//////////////////////////////////////////////////
+// Choose task from mi(mutual information), cp(capacity),
+// me(min-entropy leakage) and mc(min-capacity)
+-mi
+
+// Choose whether observation is di(discrete) or co(continuous)
+-co
+
+//////////////////////////////////////////////////
+// When analysing an ARFF file
+//-a
+//	"C:\work2\workspace\CIL-data\JavaScript\non-normalised\full.arff"
+//	"C:\work2\workspace\CIL-data\data\wekalognorm.arff'
+//	"C:\work2\workspace\CIL-data\data\test.arff"
+//	"C:\work2\workspace\CIL-data\WEKA\TorDataset.arff"
+
+// When an observation file
+//-o
+//	"C:\work2\_svn\2012\AE\Data\TalkExamples\DCprotocol_with_TLS_pc.txt"
+
+// When analysing two (continuous) observation files
+-o2
+	"../CIL-data/data/times/timesGerman500Related.txt"
+	"../CIL-data/data/times/timesGerman500Random.txt"
+//
+//-o2
+//	"../CIL-data/data/testobs1.txt"
+//	"../CIL-data/data/testobs2.txt"
+
+// When analysing a channel file
+//-c
+//	"C:\work2\_svn\2012\AE\Data\Channels\DiningCryptos\dc3allbias4.txt"
+
+
+//////////////////////////////////////////////////
+// Set high (secret) attributes when analysing an ARFF file
+//-high  75
+-high  69
+//-high   1
+
+// Set low (observation) attributes when analysing an ARFF file
+-low   @each
+//-low   1
+
+//////////////////////////////////////////////////
+// Print a channel matrix when analysing discrete observation
+//-p
+
+// Set the level of information shown (0 to 5)
+//-v       3
+
+//////////////////////////////////////////////////
+// Set the acceptable error level for Blahut-Arimoto Algorithm
+//-e   0.0000001
+
+// Set the maximum number of interations
+//-i   5000
+
+//////////////////////////////////////////////////
+// Fix passport data
+// (When we use this option, the order of two files should be correct.)
+//-fix

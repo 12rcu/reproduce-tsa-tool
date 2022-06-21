@@ -1,0 +1,27 @@
+//// Configuration file for passport analysis ////
+// Usage:
+// java -jar leakiEst.jar -cfg configPassport.txt
+//
+//////////////////////////////////////////////////
+// Choose task from mi(mutual information), cp(capacity),
+// me(min-entropy leakage) and mc(min-capacity)
+-mi
+
+// Choose whether observation is di(discrete) or co(continuous)
+-co
+
+//////////////////////////////////////////////////
+// When an observation file
+// When analysing two (continuous) observation files
+-o2
+	"../CIL-data/data/times/timesGerman500Related.txt"
+	"../CIL-data/data/times/timesGerman500Random.txt"
+
+//////////////////////////////////////////////////
+// Set the level of information shown (0 to 5)
+-v       0
+
+//////////////////////////////////////////////////
+// Fix passport data
+// (When we use this option, the order of two files should be correct.)
+//-fix

@@ -1,0 +1,15 @@
+set timeout -1
+
+spawn ../challenge_program/bin/powerbroker -i ./detroit.id
+expect {PowerBroker>}
+
+send "begin connectionlist1.txt profile_detroit.json\n"
+expect {GenerationPlan:}
+
+
+expect {Done processing power profile}
+expect {Disconnected from all users}
+expect {PowerBroker>}
+
+send "exit\n"
+expect eof
