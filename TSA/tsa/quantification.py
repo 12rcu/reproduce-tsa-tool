@@ -76,11 +76,11 @@ from sklearn.model_selection import StratifiedKFold
 #import pandas as pd
 #from skimage import io, transform
 
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-#import torch.optim as optim
-from torch.utils.data import Dataset#, DataLoader
+# import torch
+# import torch.nn as nn
+# import torch.nn.functional as F
+# #import torch.optim as optim
+# from torch.utils.data import Dataset#, DataLoader
 #import skorch
 #from skorch import NeuralNetClassifier
 #import skorch.callbacks
@@ -253,94 +253,181 @@ plt.rc('axes', prop_cycle=new_prop_cycle)
 
 #TODO Look for Hidden Markov model library, looks suitable for IoT apps.
 
-class CNN(nn.Module):
-	def __init__(self, input_size=100, output_size=10, num_features=50):
-		super(CNN, self).__init__()
-		# 1 input image channel, 6 output channels, 3x1 convolution
-		# kernel
-		self.conv1 = nn.Conv1d(in_channels = 1, out_channels = 4, kernel_size = 2)
-		#self.conv2 = nn.Conv1d(in_channels = 6, out_channels = 16, kernel_size = 2)
-		# an affine operation: y = Wx + b
-		self.fc1 = nn.Linear(4*(num_features - 1), 20) # out_channels * (num_features - num conv layers)
-		self.fc2 = nn.Linear(20, 10)
-		#self.do  = nn.Dropout(0.5)
-		self.fc3 = nn.Linear(10, output_size)
+# class CNN(nn.Module):
+# 	def __init__(self, input_size=100, output_size=10, num_features=50):
+# 		super(CNN, self).__init__()
+# 		# 1 input image channel, 6 output channels, 3x1 convolution
+# 		# kernel
+# 		self.conv1 = nn.Conv1d(in_channels = 1, out_channels = 4, kernel_size = 2)
+# 		#self.conv2 = nn.Conv1d(in_channels = 6, out_channels = 16, kernel_size = 2)
+# 		# an affine operation: y = Wx + b
+# 		self.fc1 = nn.Linear(4*(num_features - 1), 20) # out_channels * (num_features - num conv layers)
+# 		self.fc2 = nn.Linear(20, 10)
+# 		#self.do  = nn.Dropout(0.5)
+# 		self.fc3 = nn.Linear(10, output_size)
 
-	def forward(self, x):
-		#print('1: {}'.format(x.shape))
-		#x = F.max_pool1d(F.relu(self.conv1(x)), 2)
-		x = F.relu(self.conv1(x))
-		#x = self.do(x)
-		#print('2: {}'.format(x.shape))
-		#x = F.relu(self.conv2(x))
-		#print('3: {}'.format(x.shape)) 
-		x = x.view((-1, self.num_flat_features(x)))#x.shape[1]*x.shape[2])) 
-		#print('4: {}'.format(x.shape))
-		x = F.relu(self.fc1(x))
-		#print('5: {}'.format(x.shape))
-		x = F.relu(self.fc2(x))
-		#print('6: {}'.format(x.shape))
-		x = self.fc3(x)
-		#print('7: {}'.format(x.shape))
-		return F.softmax(x, dim=1)
+# 	def forward(self, x):
+# 		#print('1: {}'.format(x.shape))
+# 		#x = F.max_pool1d(F.relu(self.conv1(x)), 2)
+# 		x = F.relu(self.conv1(x))
+# 		#x = self.do(x)
+# 		#print('2: {}'.format(x.shape))
+# 		#x = F.relu(self.conv2(x))
+# 		#print('3: {}'.format(x.shape)) 
+# 		x = x.view((-1, self.num_flat_features(x)))#x.shape[1]*x.shape[2])) 
+# 		#print('4: {}'.format(x.shape))
+# 		x = F.relu(self.fc1(x))
+# 		#print('5: {}'.format(x.shape))
+# 		x = F.relu(self.fc2(x))
+# 		#print('6: {}'.format(x.shape))
+# 		x = self.fc3(x)
+# 		#print('7: {}'.format(x.shape))
+# 		return F.softmax(x, dim=1)
 
-	def num_flat_features(self, x):
-		size = x.size()[1:]  # all dimensions except the batch dimension
-		num_features = 1
-		for s in size:
-			num_features *= s
-		return num_features
+# 	def num_flat_features(self, x):
+# 		size = x.size()[1:]  # all dimensions except the batch dimension
+# 		num_features = 1
+# 		for s in size:
+# 			num_features *= s
+# 		return num_features
 
-class RNN(nn.Module):
-	# dimensions mismatch 
-	def __init__(self, input_size, hidden_size, output_size):
-		super(RNN, self).__init__()
+# class RNN(nn.Module):
+# 	# dimensions mismatch 
+# 	def __init__(self, input_size, hidden_size, output_size):
+# 		super(RNN, self).__init__()
 		
-		self.hidden_size = hidden_size
-		self.i2h = nn.Linear(input_size + hidden_size, hidden_size)
-		self.i2o = nn.Linear(input_size + hidden_size, output_size)
-		self.softmax = nn.LogSoftmax(dim=1)
+# 		self.hidden_size = hidden_size
+# 		self.i2h = nn.Linear(input_size + hidden_size, hidden_size)
+# 		self.i2o = nn.Linear(input_size + hidden_size, output_size)
+# 		self.softmax = nn.LogSoftmax(dim=1)
 
-	def forward(self, x, hidden):
-		combined = torch.cat((x, hidden), 1)
-		hidden = self.i2h(combined)
+# 	def forward(self, x, hidden):
+# 		combined = torch.cat((x, hidden), 1)
+# 		hidden = self.i2h(combined)
 
-		output = self.i2o(combined)
-		output = self.softmax(output)
-		return output, hidden
+# 		output = self.i2o(combined)
+# 		output = self.softmax(output)
+# 		return output, hidden
+#class CNN(nn.Module):
+# 	def __init__(self, input_size=100, output_size=10, num_features=50):
+# 		super(CNN, self).__init__()
+# 		# 1 input image channel, 6 output channels, 3x1 convolution
+# 		# kernel
+# 		self.conv1 = nn.Conv1d(in_channels = 1, out_channels = 4, kernel_size = 2)
+# 		#self.conv2 = nn.Conv1d(in_channels = 6, out_channels = 16, kernel_size = 2)
+# 		# an affine operation: y = Wx + b
+# 		self.fc1 = nn.Linear(4*(num_features - 1), 20) # out_channels * (num_features - num conv layers)
+# 		self.fc2 = nn.Linear(20, 10)
+# 		#self.do  = nn.Dropout(0.5)
+# 		self.fc3 = nn.Linear(10, output_size)
 
-	def initHidden(self):
-		return torch.zeros(1, self.hidden_size)
+# 	def forward(self, x):
+# 		#print('1: {}'.format(x.shape))
+# 		#x = F.max_pool1d(F.relu(self.conv1(x)), 2)
+# 		x = F.relu(self.conv1(x))
+# 		#x = self.do(x)
+# 		#print('2: {}'.format(x.shape))
+# 		#x = F.relu(self.conv2(x))
+# 		#print('3: {}'.format(x.shape)) 
+# 		x = x.view((-1, self.num_flat_features(x)))#x.shape[1]*x.shape[2])) 
+# 		#print('4: {}'.format(x.shape))
+# 		x = F.relu(self.fc1(x))
+# 		#print('5: {}'.format(x.shape))
+# 		x = F.relu(self.fc2(x))
+# 		#print('6: {}'.format(x.shape))
+# 		x = self.fc3(x)
+# 		#print('7: {}'.format(x.shape))
+# 		return F.softmax(x, dim=1)
 
-class TraceFeaturesDataset(Dataset):
-	"""Trace features dataset."""
+# 	def num_flat_features(self, x):
+# 		size = x.size()[1:]  # all dimensions except the batch dimension
+# 		num_features = 1
+# 		for s in size:
+# 			num_features *= s
+# 		return num_features
 
-	def __init__(self, features, labels, transform=None):
-		"""
-		Args:
-			transform (callable, optional): Optional transform to be applied
-				on a sample.
-		"""
-		self.features = features
-		self.labels = labels
-		self.transform = transform
-
-	def __len__(self):
-		return len(self.labels)
+# class RNN(nn.Module):
+# 	# dimensions mismatch 
+# 	def __init__(self, input_size, hidden_size, output_size):
+# 		super(RNN, self).__init__()
 		
-	def __getitem__(self, idx):
-		if torch.is_tensor(idx):
-			idx = idx.tolist()
+# 		self.hidden_size = hidden_size
+# 		self.i2h = nn.Linear(input_size + hidden_size, hidden_size)
+# 		self.i2o = nn.Linear(input_size + hidden_size, output_size)
+# 		self.softmax = nn.LogSoftmax(dim=1)
 
-		inputs = self.features[idx]
-		labels = self.labels[idx]
+# 	def forward(self, x, hidden):
+# 		combined = torch.cat((x, hidden), 1)
+# 		hidden = self.i2h(combined)
 
-		sample = {'inputs': inputs, 'labels': labels} 
+# 		output = self.i2o(combined)
+# 		output = self.softmax(output)
+# 		return output, hidden
 
-		if self.transform:
-			sample = self.transform(sample)
+# 	def initHidden(self):
+# 		return torch.zeros(1, self.hidden_size)
 
-		return sample
+# class TraceFeaturesDataset(Dataset):
+# 	"""Trace features dataset."""
+
+# 	def __init__(self, features, labels, transform=None):
+# 		"""
+# 		Args:
+# 			transform (callable, optional): Optional transform to be applied
+# 				on a sample.
+# 		"""
+# 		self.features = features
+# 		self.labels = labels
+# 		self.transform = transform
+
+# 	def __len__(self):
+# 		return len(self.labels)
+		
+# 	def __getitem__(self, idx):
+# 		if torch.is_tensor(idx):
+# 			idx = idx.tolist()
+
+# 		inputs = self.features[idx]
+# 		labels = self.labels[idx]
+
+# 		sample = {'inputs': inputs, 'labels': labels} 
+
+# 		if self.transform:
+# 			sample = self.transform(sample)
+
+# 		return sample
+# 	def initHidden(self):
+# 		return torch.zeros(1, self.hidden_size)
+
+# class TraceFeaturesDataset(Dataset):
+# 	"""Trace features dataset."""
+
+# 	def __init__(self, features, labels, transform=None):
+# 		"""
+# 		Args:
+# 			transform (callable, optional): Optional transform to be applied
+# 				on a sample.
+# 		"""
+# 		self.features = features
+# 		self.labels = labels
+# 		self.transform = transform
+
+# 	def __len__(self):
+# 		return len(self.labels)
+		
+# 	def __getitem__(self, idx):
+# 		if torch.is_tensor(idx):
+# 			idx = idx.tolist()
+
+# 		inputs = self.features[idx]
+# 		labels = self.labels[idx]
+
+# 		sample = {'inputs': inputs, 'labels': labels} 
+
+# 		if self.transform:
+# 			sample = self.transform(sample)
+
+# 		return sample
 
 class Quantification(object):
 	
