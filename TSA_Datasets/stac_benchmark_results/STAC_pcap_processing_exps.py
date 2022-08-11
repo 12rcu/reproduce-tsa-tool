@@ -1,7 +1,6 @@
 # This experiment processes the AutoFeed pcaps and prints the leakage results at each step. 
 # It also prints the stopping criterion if the execution should stop, stopping criterion code copied from AutoProfit class.
 
-
 from tsa import Utils, Sniffer, Transform, Quantification
 import time
 
@@ -106,7 +105,7 @@ for l in time_list:
 		print("Leakage for step {}: {}".format(i, leakage))
 		leakage_history.append(leakage)
 		print('Leakage history in bits: {}'.format(leakage_history))
-		lp = [[(leak for (leak, tag) in lx[:10]] for lx in leakage_history]
+		lp = [[leak for (leak, tag) in lx[:10]] for lx in leakage_history]
 		print("Leakage in list form:"+ str(lp))
 
 		#STOP CRITERION
