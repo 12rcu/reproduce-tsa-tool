@@ -79,24 +79,21 @@ for l in time_list:
 		intrs = intrs + new_intrs
 		print("Total number of traces: {}".format(len(intrs)))
 		print (i, len(l))
-		if i > stop_pt:
-			continue
-		if i == stop_pt:
-			orig_intrs = intrs[:]
-			#No noise vs. noise levels if the servers were at US West, US East, Russia 
-			noise_list = [(0.0, 0.0), (3.438/1000, 0.083/1000), (74.636/1000, 3.196/1000), (220.518/1000, 2.382/1000)]
-			for (avg_val, std_val) in noise_list:
-				#print ("Running the experiments with added noise of mean={} and stddev={}".format(avg_val, std_val))
-				intrs = addnoise(orig_intrs[:], avg_val, std_val)
-				print("Number of traces: {}".format(len(intrs)))
-				print(el)
+		orig_intrs = intrs[:]
+		#No noise vs. noise levels if the servers were at US West, US East, Russia 
+		noise_list = [(0.0, 0.0), (3.438/1000, 0.083/1000), (74.636/1000, 3.196/1000), (220.518/1000, 2.382/1000)]
+		for (avg_val, std_val) in noise_list:
+			#print ("Running the experiments with added noise of mean={} and stddev={}".format(avg_val, std_val))
+			intrs = addnoise(orig_intrs[:], avg_val, std_val)
+			print("Number of traces: {}".format(len(intrs)))
+			print(el)
 
-				quant_mode = 'kde-dynamic'
-				print ("QUANTIFICATION MODE: {}, calcSpace: {}, calcTime: {}".format(quant_mode, calcSpace, calcTime))
-				(labels, features, tags, leakage) = Quantification.process_all(interactions=intrs, use_phases=True, pcap_filename=el, quant_mode=quant_mode, calcSpace=calcSpace, calcTime=calcTime, plot=False, dry_mode = False, debug_print=False)
-				print("len_labels_init:{}, len_features_init:{}, f[0]:{}".format(len(labels),len(features), len(features[0])))
-				print(leakage)
-				
-				mid_time = time.time()
-				print("Feature Extraction & Quantification Time: {:.2f}".format(mid_time-start_time))
-				print("="*80)
+			quant_mode = 'kde-dynamic'
+			print ("QUANTIFICATION MODE: {}, calcSpace: {}, calcTime: {}".format(quant_mode, calcSpace, calcTime))
+			(labels, features, tags, leakage) = Quantification.process_all(interactions=intrs, use_phases=True, pcap_filename=el, quant_mode=quant_mode, calcSpace=calcSpace, calcTime=calcTime, plot=False, dry_mode = False, debug_print=False)
+			print("len_labels_init:{}, len_features_init:{}, f[0]:{}".format(len(labels),len(features), len(features[0])))
+			print(leakage)
+			
+			mid_time = time.time()
+			print("Feature Extraction & Quantification Time: {:.2f}".format(mid_time-start_time))
+			print("="*80)

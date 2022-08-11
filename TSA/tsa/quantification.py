@@ -1394,6 +1394,183 @@ class Quantification(object):
 		return (priori_entropy, posteriori_entropy, leakage_entropy)
 
 	@classmethod
+	def estimate_entropy_kde_multidimensional(cls, features, labels, tag='', bdwidth=None, pprint=True, option='dynamic', option2='space', num_dimensions=2):
+		"""
+		This method quantifies the information leakage of combined features.
+		The method takes a list of data points, reduces the number of features to K using LDA, and quantifies the information leakage.
+		One problem is that reducing the number of features could reduce variance and leakage.
+
+
+		Args:
+			features: List of list of feature values.
+			labels: List of labels corresponding to each feature.
+			tag: Name of the feature for plot and printing purposes.
+			bdwidth: The bandwidth value for the kernel, used if option argument is 'fixed'.
+			pprint: This argument sets whether to print the results or not.
+			plot: This argument sets whether the distributions that are estimated will be plotted.
+			option: This argument can be set to 'dynamic', 'stddev', or 'fixed'. These options determine the bandwidth selection method.
+				If 'dynamic' is set, this method uses cross validation to search and determine the bandwidth value.
+				If 'stddev' is set, the ideal bandwidth assuming the distribution is Gaussian or close to Gausssian is used.
+				If 'fixed' is set, the bandwidth value set by the user is used.
+			option2: This argument can be set to 'space' or 'time'.
+			They are used to select the bandwidth search candidates.
+			They are also used in default bandwidth is option is 'fixed' and bdwidth is None.
+
+		Returns:
+			The a-priori entropy, a-posteriori entropy and the leakage entropy (the difference).
+		"""
+		warnings.filterwarnings("ignore")
+		if not(option=='dynamic' or option=='stddev' or option=='fixed'):
+			print('Option argument needs to be dynamic, stddev, or fixed.')
+			return None
+
+		if option=='fixed' and bdwidth is None:
+			print('If the kde option is fixed, you need to provide a bandwidth size, bandwidth argument is None.')
+			return None
+
+		if not(option2 in ['space', 'time']):
+			print('Option2 needs to be set as space or time.')
+
+		print("LenFEATURES", len(features))
+		print("LenFEATURES_K", len(features[0]))
+		print("LenLABELS", len(labels))
+
+		new_features = cls.reduce_dim_lda(features, labels, n_components=num_dimensions)
+
+		print("LenNEWFEATURES", len(new_features))
+		print("LenNEWFEATURES_K", len(new_features[0]))
+
+		#Definitions for Kernel Density Estimation
+		feature_range_list = []
+		for i in range(num_dimensions):
+			feature_list = [el[i] for el in new_features]
+			range_tuple = (float(min(feature_list)), float(max(feature_list)))
+			feature_range_list.append(range_tuple)
+		epsilon     = np.power(10.0,-10)
+		num_samples = 100000
+		sample_points = [None for _ in range(num_samples)]
+		for i in range(num_samples):
+			sample_points[i] = [random.uniform(minval-epsilon, maxval+epsilon) for (minval, maxval) in feature_range_list]
+
+		#Computing priori entropy
+		secrets = set(labels)
+		priori_entropy = np.log2(len(secrets)) # Assuming uniform distribution over secrets
+		data = sorted(zip(new_features, labels), key=lambda tup: tup[1])
+
+		#Sampling points for probability estimation
+		
+		#Points for p(x|y), p(y) is assumed discrete uniform (1/N)
+		secret_point_list = [[] for _ in range(len(secrets))]
+
+		for (i,j) in data:
+			secret_point_list[j].append(i)
+
+		p_y_lists = [[None for _ in range(num_dimensions)] for _ in range(len(secrets))]
+		#p_y_lists_features = [[] for _ in range(len(secrets))]
+
+		for i in range(len(secrets)): # kernel is epanechnikov, a narrower distribution.
+			for j in range(num_dimensions): #Finding p(x_j|i) for each i and j
+				xs = np.array(secret_point_list[i][j])
+				xs = xs.reshape(-1, 1)
+
+				max_val = max(secret_point_list[i][j]) - min(secret_point_list[i][j])
+				#print('Range for feature {} and secret {}: {}'.format(tag, i, max_val))
+
+				if option == 'stddev':
+					std_bdwidth = 1.06 * np.std(secret_point_list[i][j]) * np.power(1.0/float(len(secret_point_list[i][j])), 0.2)
+					bdwidth = std_bdwidth
+
+					if option2 == 'space' and bdwidth <= 0.0:
+						bdwidth = 0.1
+					if option2 == 'time' and bdwidth <= 0.0:
+						bdwidth = 0.00001
+				elif option == 'dynamic':
+					std_bdwidth = 1.06 * np.std(secret_point_list[i][j]) * np.power(1.0/float(len(secret_point_list[i][j])), 0.2)
+					if max_val == 0.0 and option2 == 'space':
+						max_val = 100.0
+					if max_val == 0.0 and option2 == 'time':
+						max_val = 0.1
+					if option2 == 'space':
+						bdwidth = 0.1
+						bandwidths = np.linspace(1.0, max_val, 10)
+						bandwidths = np.array(list(bandwidths) + [std_bdwidth, 0.1, 1.0, 5.0, 10.0, 20.0])
+					else:
+						bdwidth = 0.00001
+						bandwidths = np.linspace(0.00001, max_val, 10)
+						bandwidths = np.array(list(bandwidths) + [std_bdwidth, 0.001, 0.01, 0.1, 1.0, 5.0])
+
+					if len(xs) > 1:
+						#print('Running grid search with 3 times repeated 5-fold cross-validation, parallelized')
+						grid = GridSearchCV(KernelDensity(kernel='epanechnikov'),
+							param_grid={'bandwidth': bandwidths}, n_jobs = -1,
+							cv=KFold(n_splits = min(5, len(xs)), shuffle=True))
+							#cv=RepeatedKFold(n_splits=min(5, len(xs)), n_repeats=3))
+							#cv=ShuffleSplit(n_splits=5, test_size=0.20))
+						grid.fit(xs)
+						bdwidth = grid.best_params_['bandwidth']
+					if bdwidth <= 0.0:
+						if option2 == 'space':
+							bdwidth = 0.1
+						else:
+							bdwidth = 0.00001
+
+				if bdwidth < 0.000000001:
+					bdwidth = 0.000000001
+
+				#print('BANDWIDTH:',bdwidth)
+
+				#print('Bdwidth for {}:{} set to {}, options: {} {}'.format(tag, i, bdwidth, option, option2))
+
+				kde = KernelDensity(kernel='epanechnikov', bandwidth=float(bdwidth)).fit(xs)
+				#np.array(secret_point_list[i])[:,np.newaxis])
+				#kde = grid.best_estimator_
+				#sample_points = np.array(list(sample_points) + secret_point_list[i])
+
+				p_y_lists[i][j] = kde.score_samples(np.array(sample_points[j])[:,np.newaxis])
+				p_y_lists[i][j] = normalize(np.exp(p_y_lists[i][j])[:,np.newaxis],norm='l1', axis=0)
+
+				#p_y_lists_features[i] = kde.score_samples(np.array(features)[:, np.newaxis])
+				#p_y_lists_features[i] = np.exp(p_y_lists_features[i])[:, np.newaxis]
+
+		#Entropy Calculation, seems correct
+		posteriori_entropy = 0.0
+		p_y = 1.0/len(secrets)
+		for (i,_) in enumerate(sample_points):
+			sample_ent = 0.0
+			p_x = [0.0 for _ in range(num_dimensions)]
+			for j in range(len(secrets)):
+				p_x_y = p_y
+				for k in range(num_dimensions):
+					p_xy = p_y_lists[j][i][k] # p(x_k|y=j)
+					p_x_y = p_x_y * p_xy # p(x1,x2,y=j) = p(x1|y)*p(x2|y)*p(y)
+					p_x_k_y = p_x_y * p_y # p(x_k,y=j) = p(x_k|y=j)p(y=j)
+
+					p_x[k] += p_x_k_y # p(x_k) = sum_{y} p(x_k,y)
+					p_x_y = epsilon if p_x_y < epsilon else p_x_y #To prevent log0 errors
+				sample_ent -= p_x_y *np.log2(p_x_y) #-sum_y p(x1,x2,y) log2(p(x1,x2,y))
+			p_x_joint = 1.0 #p(x1,x2) = p(x1)p(x2) #Assuming independence in this case
+			for k in range(num_dimensions):
+				p_x[k] = epsilon if p_x[k] < epsilon else p_x[k] #To prevent log0 errors
+				p_x_joint = p_x_joint*p_x[k]
+			sample_ent += p_x_joint * np.log2(p_x_joint) # sum_x p(x1,x2) log2(p(x1,x2))
+			posteriori_entropy += sample_ent
+
+		leakage_entropy = priori_entropy - posteriori_entropy
+
+		#TODO Maybe compute classifier bounds as well????
+
+		if pprint:
+			print('For feature {0}:'.format(tag))
+			print('Number of secrets                        : {0}'.format(len(secrets)))
+			print('A-priori Entropy                         : {0} bits'.format(priori_entropy))
+			print('A-posteriori Entropy                     : {0} bits'.format(posteriori_entropy))
+			print('Leakage Entropy (a-priori - a-posteriori): {0} bits'.format(leakage_entropy))
+			#print('Loss                                     : {0}'.format(loss))
+			print('-'*80)
+
+		return (priori_entropy, posteriori_entropy, leakage_entropy)	
+
+	@classmethod
 	def phase2interval(cls, interactions):
 		#Intervals are list of dictionaries.
 		intervals = [None] * len(interactions)
