@@ -56,7 +56,7 @@ else: #Assuming that it's a folder
 			new_traces = sniffer.processed_intrs
 			traces = traces + new_traces
 		elif '.tss' in el[-4:]:
-			new_traces = Utils.parsetssfiles(filename=args.filename)
+			new_traces = Utils.parsetssfiles(filename=el)
 			traces = traces + new_traces
 		else:
 			continue
