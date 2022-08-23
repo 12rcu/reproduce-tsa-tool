@@ -18,10 +18,6 @@ pip install . --user
 Dependencies:
 * Python 3.7+
 
-If you want to try the Mathematica notebook on alignment or the Python code on alignment, the extra dependencies are:
-* Mathematica 
-* MAFFT (Multiple Sequence Alignment Library)
-
 Python libraries required:
 * docker
 * scapy
@@ -30,6 +26,12 @@ Python libraries required:
 * matplotlib
 * scikit-learn
 
+If you want to try the Mathematica notebook on alignment or the Python code on alignment, the extra dependencies are:
+* Mathematica 
+* MAFFT (Multiple Sequence Alignment Library)
+
+If you want to use the classifiers for attack synthesis, _pytorch_ library is required.
+
 If you want to use F-BLEAU for leakage quantification, it needs to be installed in addition to all the other dependencies.
 
 ## Files & Folders:
@@ -37,7 +39,7 @@ If you want to use F-BLEAU for leakage quantification, it needs to be installed 
 * TSA/examples/: Contains examples for analyzing DARPA STAC benchmark applications with input generation.
 * TSA/leakiest-1.4.7: Contains the LeakiEst code for quantification. A binary version is also in TSA/tsa/bin for execution.
 * TSA/pcap-tss_examples: Contains an example .pcap and .tss file which are two different representations of the network trace that TSA supports. It also contains a .json file which represents the alignment information for each trace.
-* TSA/tsa/: Contains the main library for TSA. Because it is built on top of Profit and AutoFeed, we kept the filenames.
+* TSA/tsa/: The main library folder for TSA.
 * TSA/tsa/sniffer.py: Contains Sniffer, Transform and Utils classes.
 	Sniffer class contains utilities related to sniffing the network traffic of target program. It contains methods to start/stop sniffing and extra methods which mark start of a test, export the captured info to .pcap(Packet Capture) format for general usage, import .pcap file into the program.
 	Transform contains utilities to process the network traffic data to a different traffic data or to a set of values obtained from the data. This is used to remove packets deemed unnecessary (zero sized packets) and to extract the metadata (size and timings) from the traffic data.
@@ -51,6 +53,8 @@ If you want to use F-BLEAU for leakage quantification, it needs to be installed 
 	Quantification.process_all() is the main function that takes a trace and options related to quantification and alignment, and analyzes the trace based on the selected options.
 * TSA/tsa/alignment.py: Contains Alignment class.
 	Alignment class contains utilities related to the trace alignment. It transforms a subset of the trace to an ASCII file, uses MAFFT to align the ASCII traces and maps them to stable and variable phases to be applicable to all other traces.
+* TSA/tsa/shaper.py: Contains Shaper class.
+	Shaper class contains utilities related to traffic shaping and side-channel mitigation. These utilities synthesize a side-channel mitigation strategy based on an objective function and existing traces where the users can set an objective function on information leakage and network overhead. Other utilities use this mitigation strategy to shape the network traces and relay the modified traces instead.
 * TSA/tsa/mutation.py: Contains the base class for input and input mutators to instrument the interaction in a structured way.
 * TSA/tsa/new_stac.py: Contains the class responsible for instrumenting the Docker containers and the experiments.
 * TSA/tsa/addmark.sh: A bash script for adding markers while capturing packets. This is used to mark the beginning of a test by sending a marker packet or to mark any action in the test run in some settings.

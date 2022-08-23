@@ -1,3 +1,4 @@
+
 #Py2/Py3 Compatibility
 from __future__ import print_function, unicode_literals, absolute_import, division
 #from cProfile import label
@@ -791,7 +792,7 @@ class Quantification(object):
 	"""
 
 	@classmethod
-	def reduce_dim_lda(cls, features, labels, n_components=1, solver='svd'):
+	def reduce_dim_lda(cls, features, labels, n_components=None, solver='svd'):
 		"""
 			Reduces the number of features in our data matrix to fewer number 
 			of features using LDA (Linear Discriminant Analysis).
@@ -1143,8 +1144,8 @@ class Quantification(object):
 		#Definitions for Kernel Density Estimation
 		min_features = float(min(features))
 		max_features = float(max(features))
-		tail_percent = 0.05
-		epsilon      = np.power(10.0,-10)
+		tail_percent = 0.01
+		epsilon      = np.power(10.0,-50)
 
 		#bdwidth_preset = False
 
@@ -1247,6 +1248,8 @@ class Quantification(object):
 		#Kernel Density
 		posteriori_entropy = 0.0
 		p_y = 1.0/len(secrets)
+		epsilon_counter = 0
+		regular_counter = 0
 		for (i,_) in enumerate(sample_points):
 			sample_ent = 0.0
 			p_x = 0.0
@@ -1254,8 +1257,16 @@ class Quantification(object):
 				p_xy = p_y_lists[j][i][0] # p(x|y)
 				p_x_y = p_xy*p_y # p(x,y) = p(x|y)*p(y)
 				p_x += p_x_y # p(x) = sum_{y} p(x,y)
+				if p_x_y < epsilon:
+					epsilon_counter += 1
+				else:
+					regular_counter += 1
 				p_x_y = epsilon if p_x_y < epsilon else p_x_y #To prevent log0 errors
 				sample_ent -= p_x_y * np.log2(p_x_y) # -sum_y p(x,y) log2(p(x,y)) ??
+			if p_x < epsilon:
+				epsilon_counter += 1
+			else:
+				regular_counter += 1
 			p_x = epsilon if p_x < epsilon else p_x #To prevent log0 errors
 			sample_ent += p_x * np.log2(p_x) # sum_x p(x) log2(p(x))
 			posteriori_entropy += sample_ent
@@ -1288,7 +1299,12 @@ class Quantification(object):
 
 		leakage_entropy = priori_entropy - posteriori_entropy
 
-		if pprint:
+		print("Feature: {}".format(tag))
+		print("Epsilon counter:", epsilon_counter)
+		print("Regular counter:", regular_counter)
+		
+
+		if True:
 			print('For feature {0}:'.format(tag))
 			print('Number of secrets                        : {0}'.format(len(secrets)))
 			print('A-priori Entropy                         : {0} bits'.format(priori_entropy))
@@ -1369,6 +1385,7 @@ class Quantification(object):
 		for (i,_) in enumerate(sample_points):
 			sample_ent = 0.0
 			p_x = 0.0
+			p_x_y = 1.0
 			for j in range(len(secrets)):
 				p_x_y = p_y_lists[j][i]*p_y
 				p_x += p_x_y
@@ -1481,12 +1498,11 @@ class Quantification(object):
 		return (priori_entropy, posteriori_entropy, leakage_entropy)
 
 	@classmethod
-	def estimate_entropy_kde_multidimensional(cls, features, labels, tag='', bdwidth=None, pprint=True, option='dynamic', option2='space', num_dimensions=2):
+	def estimate_entropy_kde_multidimensional(cls, features, labels, tag='', bdwidth=None, pprint=True, option='dynamic', option2='time', feature_reduction=None, num_dimensions=2):
 		"""
 		This method quantifies the information leakage of combined features.
 		The method takes a list of data points, reduces the number of features to K using LDA, and quantifies the information leakage.
 		One problem is that reducing the number of features could reduce variance and leakage.
-
 
 		Args:
 			features: List of list of feature values.
@@ -1518,14 +1534,34 @@ class Quantification(object):
 		if not(option2 in ['space', 'time']):
 			print('Option2 needs to be set as space or time.')
 
-		print("LenFEATURES", len(features))
-		print("LenFEATURES_K", len(features[0]))
-		print("LenLABELS", len(labels))
+		print("LenFEATURES", len(features)) # X = [x_(1), x_(2), ...], Len=LenTraces
+		print("LenFEATURES_K", len(features[0])) #x_(1) = <f1, f2, f3, ...>, Len=LenFeatures
+		print("LenLABELS", len(labels)) #y_(1), y_(2), ..., Len=LenTraces
 
-		new_features = cls.reduce_dim_lda(features, labels, n_components=num_dimensions)
+		new_features = [x[:num_dimensions] for x in features]
+		
+		#new_features = cls.reduce_dim_pca(features, n_components=num_dimensions)
+		#new_features = cls.reduce_dim_lda(features, labels, n_components=num_dimensions)
 
-		print("LenNEWFEATURES", len(new_features))
-		print("LenNEWFEATURES_K", len(new_features[0]))
+		print("LenNEWFEATURES", len(new_features)) # X' = [x'_(1), x'_(2), ...]
+		print("LenNEWFEATURES_K", len(new_features[0])) # x'_(1) = <f'1, f'2>
+		print("Num Dimensions", num_dimensions) # x'_(1) = <f'1, f'2>
+
+		if feature_reduction == 'lda':
+			print("Using LDA!")
+			new_features = cls.reduce_dim_lda(features, labels, n_components=num_dimensions)
+		elif feature_reduction == 'pca':
+			print("Using PCA!")
+			new_features = cls.reduce_dim_pca(features, n_components=num_dimensions)
+		else:
+			print("No feature reduction") 
+			#TODO Sort features based on leakage! Need to run KDE beforehand for that!
+			new_features = [x[:num_dimensions] for x in features]
+
+
+		num_dimensions = len(new_features[0])
+		#if num_dimensions == 1:
+		#	print("Reduced to {} dimensions, problem same as single dimensional problem.".format(num_dimensions))
 
 		#Definitions for Kernel Density Estimation
 		feature_range_list = []
@@ -1533,11 +1569,18 @@ class Quantification(object):
 			feature_list = [el[i] for el in new_features]
 			range_tuple = (float(min(feature_list)), float(max(feature_list)))
 			feature_range_list.append(range_tuple)
-		epsilon     = np.power(10.0,-10)
-		num_samples = 100000
-		sample_points = [None for _ in range(num_samples)]
-		for i in range(num_samples):
-			sample_points[i] = [random.uniform(minval-epsilon, maxval+epsilon) for (minval, maxval) in feature_range_list]
+		epsilon     = np.power(10.0,-50)
+		tail_percent = 0.01
+		num_samples = 5000000
+		#sample_points = new_features
+		#for i in range(19):
+		#	sample_points += new_features
+		#sample_points = new_features
+		sample_points = [None for _ in range(num_samples)] # + new_features
+		for i in range(len(sample_points)):
+			sample_points[i] = [random.uniform(minval-(maxval-minval)*tail_percent, maxval+(maxval-minval)*tail_percent) for (minval, maxval) in feature_range_list]
+
+		#print(sample_points[0:10])
 
 		#Computing priori entropy
 		secrets = set(labels)
@@ -1551,6 +1594,12 @@ class Quantification(object):
 
 		for (i,j) in data:
 			secret_point_list[j].append(i)
+
+		print(len(secret_point_list))
+		print(len(secret_point_list[0]))
+		print(len(secret_point_list[0][0]))
+		print(len(secret_point_list[0][1]))
+		print(len(secret_point_list[1]))
 
 		p_y_lists = [[None for _ in range(num_dimensions)] for _ in range(len(secrets))]
 		#p_y_lists_features = [[] for _ in range(len(secrets))]
@@ -1613,36 +1662,56 @@ class Quantification(object):
 				#kde = grid.best_estimator_
 				#sample_points = np.array(list(sample_points) + secret_point_list[i])
 
-				p_y_lists[i][j] = kde.score_samples(np.array(sample_points[j])[:,np.newaxis])
-				p_y_lists[i][j] = normalize(np.exp(p_y_lists[i][j])[:,np.newaxis],norm='l1', axis=0)
+				p_y_lists[i][j] = kde.score_samples(np.array([el[j] for el in sample_points])[:,np.newaxis])
+				p_y_lists[i][j] = np.exp(p_y_lists[i][j])[:,np.newaxis] #,norm='l1', axis=0) #Fix normalization
 
 				#p_y_lists_features[i] = kde.score_samples(np.array(features)[:, np.newaxis])
 				#p_y_lists_features[i] = np.exp(p_y_lists_features[i])[:, np.newaxis]
 
 		#Entropy Calculation, seems correct
 		posteriori_entropy = 0.0
-		p_y = 1.0/len(secrets)
+		p_y = 1.0/float(len(secrets))
+		epsilon_counter = 0
+		regular_counter = 0
 		for (i,_) in enumerate(sample_points):
 			sample_ent = 0.0
 			p_x = [0.0 for _ in range(num_dimensions)]
+			p_x_y = 1.0
 			for j in range(len(secrets)):
 				p_x_y = p_y
 				for k in range(num_dimensions):
-					p_xy = p_y_lists[j][i][k] # p(x_k|y=j)
-					p_x_y = p_x_y * p_xy # p(x1,x2,y=j) = p(x1|y)*p(x2|y)*p(y)
-					p_x_k_y = p_x_y * p_y # p(x_k,y=j) = p(x_k|y=j)p(y=j)
+					p_xy = p_y_lists[j][k][i] # p(x_k|y=j)
 
+					p_x_k_y = p_xy * p_y # p(x_k,y=j) = p(x_k|y=j)p(y=j)
+					
+					#Cumulative
+					p_x_y = p_x_y * p_xy # p(x1,x2,y=j) = p(x1|y)*p(x2|y)*p(y)
+					
+					#Cumulative
 					p_x[k] += p_x_k_y # p(x_k) = sum_{y} p(x_k,y)
-					p_x_y = epsilon if p_x_y < epsilon else p_x_y #To prevent log0 errors
-				sample_ent -= p_x_y *np.log2(p_x_y) #-sum_y p(x1,x2,y) log2(p(x1,x2,y))
+				if p_x_y < epsilon:
+					epsilon_counter += 1
+				else:
+					regular_counter += 1
+				p_x_y = epsilon if p_x_y < epsilon else p_x_y #To prevent log0 errors
+				sample_ent -= p_x_y * np.log2(p_x_y) #-sum_y p(x1,x2,y) log2(p(x1,x2,y))
 			p_x_joint = 1.0 #p(x1,x2) = p(x1)p(x2) #Assuming independence in this case
 			for k in range(num_dimensions):
-				p_x[k] = epsilon if p_x[k] < epsilon else p_x[k] #To prevent log0 errors
+				#p_x[k] = epsilon if p_x[k] < epsilon else p_x[k] #To prevent log0 errors
 				p_x_joint = p_x_joint*p_x[k]
-			sample_ent += p_x_joint * np.log2(p_x_joint) # sum_x p(x1,x2) log2(p(x1,x2))
+			if p_x_joint < epsilon:
+				epsilon_counter += 1
+			else:
+				regular_counter += 1
+			p_x_joint = epsilon if p_x_joint < epsilon else p_x_joint
+			sample_ent += p_x_joint * np.log2(p_x_joint) #+ p(x1,x2) log2(p(x1,x2))
 			posteriori_entropy += sample_ent
 
 		leakage_entropy = priori_entropy - posteriori_entropy
+		print("Epsilon counter", epsilon_counter)
+		print("Regular counter", regular_counter)
+		#leakage_entropy = leakage_entropy[0]
+
 
 		#TODO Maybe compute classifier bounds as well????
 
@@ -1655,7 +1724,7 @@ class Quantification(object):
 			#print('Loss                                     : {0}'.format(loss))
 			print('-'*80)
 
-		return (priori_entropy, posteriori_entropy, leakage_entropy)	
+		return (priori_entropy, posteriori_entropy, leakage_entropy)
 
 	@classmethod
 	def phase2interval(cls, interactions):
@@ -1804,7 +1873,7 @@ class Quantification(object):
 		#STEP 1 - CREATING LISTS OF TRACES OUT OF .PCAP FILES
 		#======================================
 
-		quant_mode_list = ['normal', 'hist', 'kde', 'kde-dynamic', 'gmm', 'leakiest-integer', 'leakiest-real', 'fbleau'] + \
+		quant_mode_list = ['normal', 'hist', 'kde', 'kde-dynamic', 'kde-multidimensional', 'kde-bounds', 'gmm', 'leakiest-integer', 'leakiest-real', 'fbleau'] + \
 		['rf-classifier', 'knn-classifier', 'nb-classifier', 'fcnn-classifier'] + ['convnn-classifier', 'rnn-classifier']
 
 		if calcSpace is False and calcTime is False:
@@ -2234,6 +2303,19 @@ class Quantification(object):
 			leakage = all_time_leakage
 		
 		quant_time = time.time()
+		
+		if quant_mode == 'kde-multidimensional':
+			features_max = [max(f) for f in features]
+			features_norm = [[float(x)/max_f if max_f>0 else float(x) for x in f] for (f, max_f) in zip(features, features_max)]
+			features_t_norm = list(zip(*features_norm))
+			features_t = list(zip(*features))
+			X = features_t_norm
+			y = labels
+			results = cls.estimate_entropy_kde_multidimensional(features=X, labels=y, option='stddev', num_dimensions=num_reduced_features, feature_reduction=feature_reduction)
+			return results
+
+		#X, X_test = cls.reduce_dim_lda_new(X_train, y_train, X_test, n_components=num_reduced_features, padding = pad)
+
 
 		#Reducing number of features with respect to ranking
 		if feature_reduction is not None:
@@ -2360,7 +2442,7 @@ class Quantification(object):
 
 				#nn_once_run = True
 				grid = GridSearchCV(neural_network.MLPClassifier(batch_size=16, max_iter=2500),
-					param_grid = {'hidden_layer_sizes': [(20,10), (10,10), (5,5)]}, n_jobs = -1,
+					param_grid = {'hidden_layer_sizes': [(5), (10), (20), (20,10), (10,10), (5,5)]}, n_jobs = -1,
 					cv=StratifiedKFold(5))
 				grid.fit(X_train, y_train)
 				hidden_layer_sizes = grid.best_params_['hidden_layer_sizes']
@@ -2389,31 +2471,44 @@ class Quantification(object):
 				#precision = precision_score(y_test, results, average = 'macro')
 				#recall = recall_score(y_test, results, average = 'macro')
 				#f1sc = f1_score(y_test, results, average = 'macro')
-				importance = clf.feature_importances_
+				if quant_mode == 'rf-classifier':
+					importance = clf.feature_importances_
+				else:
+					importance = None
 
 				avg_accuracy += accuracy
 				avg_precision += precision
 				avg_recall += recall
 				avg_f1 += f1sc
-				if avg_importance is None:
-					avg_importance = importance
+				if quant_mode == 'rf-classifier':
+					if avg_importance is None:
+						avg_importance = importance
+					else:
+						avg_importance = [el1+el2 for (el1, el2) in zip(avg_importance, importance)]
 				else:
-					avg_importance = [el1+el2 for (el1, el2) in zip(avg_importance, importance)]
+					avg_importance = None
 
 		avg_accuracy /= n_splits
 		avg_precision /= n_splits
 		avg_recall /= n_splits
 		avg_f1 /= n_splits
-		avg_importance = [el/n_splits for el in avg_importance]
+		importance_tags_list = None
+		if quant_mode == 'rf-classifier':
+			avg_importance = [el/n_splits for el in avg_importance]
 
-		importance_tags_list = list(zip(avg_importance, tags))
-		importance_tags_list.sort(key=lambda x: -x[0])
+			importance_tags_list = list(zip(avg_importance, tags))
+			importance_tags_list.sort(key=lambda x: -x[0])
+			if not silent:
+				for importance, tag in importance_tags_list:
+					print('***', 'Feature Importance for {} : {:.5f}'.format(tag, importance))
+			
+		else:
+			avg_importance = None
+
+		
 
 		print('Average Test Accuracy: {:.2f}, Precision: {:.2f}, Recall: {:.2f}, Overall F-score: {:.2f}'.format(avg_accuracy, avg_precision, avg_recall, avg_f1))
-		if not silent:
-			for importance, tag in importance_tags_list:
-				print('***', 'Feature Importance for {} : {:.5f}'.format(tag, importance))
-		
+
 		leakage = avg_accuracy
 		training_time = time.time()
 
@@ -3228,6 +3323,9 @@ class Quantification(object):
 		testing_score = [[] for _ in labels_list]
 		accuracy_bound_list = []
 
+		max_bound_result = 0.0
+		max_accuracy_result = 0.0
+
 		bound_correctness = 0
 		bound_incorrectness = 0
 		
@@ -3345,6 +3443,10 @@ class Quantification(object):
 						if classified_class == label:
 							real_accuracy += 1.0
 					real_accuracy = real_accuracy/float(len(y))
+					if real_accuracy > max_accuracy_result:
+						max_accuracy_result = real_accuracy
+					if accuracy_bound > max_bound_result:
+						max_bound_result = accuracy_bound
 					printed_str = 'Accuracy bound and real accuracy for feature {}: {:.2f}% - {:.2f}%'.format(target_tag, accuracy_bound*100.0, real_accuracy*100.0)
 					if real_accuracy > accuracy_bound:
 						bound_incorrectness += 1
@@ -3353,6 +3455,7 @@ class Quantification(object):
 						bound_correctness += 1
 					print(printed_str)
 
+		print('Accuracy bound and real accuracy total: {:.2f}% - {:.2f}%'.format(max_bound_result*100.0, max_accuracy_result*100.0))
 		print('Number of features where accuracy upper bound holds : {}/{}'.format(bound_correctness, bound_correctness+bound_incorrectness))
 
 		#if False:
@@ -3373,709 +3476,6 @@ class Quantification(object):
 		accuracy_bound = max(accuracy_bound_list)
 
 		return accuracy_bound
-
-	@classmethod
-	def extract_location(cls, location_str):
-		src_dst_str = location_str.split()[-1].split('->')
-		src_ip = src_dst_str[0]
-		dst_ip = src_dst_str[1]
-		return (src_ip, dst_ip)
-
-	@classmethod
-	def modify(cls, traces, feature_tag, param = 0.020):
-		MAX_VAL = 1500
-		MTU = MAX_VAL
-		tag = feature_tag
-		if 'Size of packet' in tag: #Size of packet INDEX in LOCATION
-			pkt_ind = int(tag.split()[3]) - 1
-			location = ' '.join(tag.split()[5:])
-			if 'full trace, both directions' in location or 'interval' in location:
-				target_val = max([t[pkt_ind].size for t in traces if len(t) > pkt_ind])
-				for t in traces:
-					if len(t) > pkt_ind:
-						t[pkt_ind].size = target_val if (t[pkt_ind].size <= target_val) else random.randint(t[pkt_ind].size, MAX_VAL)
-			elif 'full trace, in direction' in location:
-				src_ip, dst_ip = cls.extract_location(location)
-				target_val = 0
-				#Finding Max size of Pkt[i] in location
-				for t in traces:
-					pkt_num_counter = 0
-					for p in t:
-						if p.src == src_ip and p.dst == dst_ip:
-							pkt_num_counter += 1
-							if (pkt_num_counter-1) == pkt_ind and p.size > target_val:
-								target_val = p.size
-								break
-							elif (pkt_num_counter-1) == pkt_ind:
-								break
-
-				#Applying the modification to all traces
-				for t in traces:
-					pkt_num_counter = 0
-					for p in t:
-						if p.src == src_ip and p.dst == dst_ip:
-							pkt_num_counter += 1
-							if (pkt_num_counter-1) == pkt_ind and p.size < target_val:
-								p.size = target_val
-								break
-		elif 'Number of packets with size' in tag: #Number of packets with size SIZE in LOCATION
-			#TODO Change this, it's wrong, we need to inject packets, not pad them.
-			size = int(tag.split()[5])
-			location = ' '.join(tag.split()[7:])
-			if 'full trace, both directions' in location or 'interval' in location:
-				max_num_pkts = max([len([p for p in t if p.size == size]) for t in traces])
-				min_num_pkts = min([len([p for p in t if p.size == size]) for t in traces])
-				pkt_diff = int(2*(max_num_pkts - min_num_pkts))
-				#new_traces = copy.deepcopy(mod_traces)
-				for ind,t in enumerate(traces):
-					rand_val = random.randint(0, pkt_diff)
-					for _ in range(rand_val):
-						rand_loc = random.randint(1, len(t)-1)
-						rand_pkt = random.randint(1, len(t)-1)
-						pkt = copy.deepcopy(t[rand_pkt])
-						pkt.size = size
-						#pkt.time = t[rand_loc-1].time
-						traces[ind].insert(rand_loc, pkt)
-			elif 'full trace, in direction' in location:
-				src_ip, dst_ip = cls.extract_location(location)
-				max_num_pkts = max([len([p for p in t if p.size == size and p.src == src_ip and p.dst == dst_ip]) for t in traces])
-				min_num_pkts = min([len([p for p in t if p.size == size and p.src == src_ip and p.dst == dst_ip]) for t in traces])
-				pkt_diff = int(2*(max_num_pkts - min_num_pkts))
-				#new_traces = copy.deepcopy(mod_traces)
-				for ind,t in enumerate(traces):
-					rand_val = random.randint(0, pkt_diff)
-					for _ in range(rand_val):
-						rand_loc = random.randint(1, len(t)-1)
-						rand_pkt = random.randint(1, len(t)-1)
-						pkt = copy.deepcopy(t[rand_pkt])
-						pkt.size = size
-						pkt.src = src_ip
-						pkt.dst = dst_ip
-						#pkt.time = t[rand_loc-1].time
-						traces[ind].insert(rand_loc, pkt)
-		elif 'Number of packets in' in tag: #Number of packets in LOCATION
-			location = ' '.join(tag.split()[4:])
-			#Find the max number of packets, find the average per trace
-			#Inject packets randomly equal to the difference to equalize the leakage
-			if 'full trace, both directions' in location or 'interval' in location:
-				max_num_pkts = max([len(t) for t in traces])
-				avg_num_pkts = np.mean([len(t) for t in traces])
-				pkt_diff = int(2*(max_num_pkts - avg_num_pkts))
-				#new_traces = copy.deepcopy(mod_traces)
-				for ind,t in enumerate(traces):
-					rand_val = random.randint(0, pkt_diff)
-					for _ in range(rand_val):
-						rand_loc = random.randint(1, len(t)-1)
-						rand_pkt = random.randint(1, len(t)-1)
-						pkt = copy.deepcopy(t[rand_pkt])
-						if pkt.size > 1:
-							pkt.size = random.randint(1, pkt.size)
-						#pkt.time = t[rand_loc-1].time
-						traces[ind].insert(rand_pkt, pkt)
-			elif 'full trace, in direction' in location:
-				src_ip, dst_ip = cls.extract_location(location) #Inject packets with src->dst combination
-				max_num_pkts = max([len([p for p in t if p.src == src_ip and p.dst == dst_ip]) for t in traces])
-				avg_num_pkts = np.mean([len([p for p in t if p.src == src_ip and p.dst == dst_ip]) for t in traces])
-				pkt_diff = int(2*(max_num_pkts - avg_num_pkts))
-				#new_traces = copy.deepcopy(mod_traces)
-				for ind,t in enumerate(traces):
-					rand_val = random.randint(0, pkt_diff)
-					for _ in range(rand_val):
-						rand_pkt = random.randint(1, len(t)-1)
-						pkt = copy.deepcopy(t[rand_pkt])
-						if pkt.size > 1:
-							pkt.size = random.randint(1, pkt.size)
-						pkt.src = src_ip
-						pkt.dst = dst_ip
-						traces[ind].insert(rand_pkt, pkt)
-		elif 'Minimum of sizes in' in tag: #Minimum of sizes in LOCATION
-			location = ' '.join(tag.split()[4:])
-			if 'full trace, both directions' in location or 'interval' in location:
-				max_min_size = max([min([p.size for p in t]) for t in traces])
-				for t in traces:
-					for p in t:
-						if p.size < max_min_size:
-							p.size = max_min_size
-						if p.size > 1500:
-							p.size = 1500
-			elif 'full trace, in direction' in location:
-				src_ip, dst_ip = cls.extract_location(location) #Inject packets with src->dst combination
-				new_traces = [[p.size for p in t if p.src==src_ip and p.dst==dst_ip] for t in traces]
-				min_fn = lambda x: min(x) if len(x) > 0 else 0
-				max_min_size = max([min_fn(t) for t in new_traces])
-				for t in traces:
-					for p in t:
-						if p.size < max_min_size and p.src == src_ip and p.dst == dst_ip:
-							p.size = max_min_size
-						if p.size > 1500:
-							p.size = 1500
-		elif 'Maximum of sizes in' in tag: #Maximum of sizes in LOCATION
-			location = ' '.join(tag.split()[4:])
-			if 'full trace, both directions' in location or 'interval' in location:
-				max_size = max([max([p.size for p in t]) for t in traces])
-				for ind,t in enumerate(traces):
-					rand_loc = random.randint(1, len(t)-1)
-					pkt = copy.deepcopy(t[rand_loc])
-					pkt.size = max_size
-					#pkt.time = t[rand_loc-1].time
-					traces[ind].insert(rand_loc, pkt)
-			elif 'full trace, in direction' in location:
-				src_ip, dst_ip = cls.extract_location(location) #Inject packets with src->dst combination
-				new_traces = [[p.size for p in t if p.src==src_ip and p.dst==dst_ip] for t in traces]
-				max_fn = lambda x: max(x) if len(x) > 0 else 0
-				max_size = max([max_fn(t) for t in new_traces])
-				for ind,t in enumerate(traces):
-					rand_loc = random.randint(1, len(t)-1)
-					pkt = copy.deepcopy(t[rand_loc])
-					pkt.size = max_size
-					pkt.src = src_ip
-					pkt.dst = dst_ip
-					traces[ind].insert(rand_loc, pkt)
-		elif 'Sum of sizes in' in tag: #Sum of sizes in LOCATION #AGGREGATE
-			location = ' '.join(tag.split()[4:])
-			if 'full trace, both directions' in location:
-				pkt_size_padding = None
-				if param is None:
-					list_sizes = [sum([p.size for p in t]) for t in traces]
-					size_difference = np.mean(list_sizes) - min(list_sizes)
-					list_num_pkts = [len(t) for t in traces]
-					avg_num_pkts = np.mean(list_num_pkts)
-					pkt_size_padding = int(size_difference/(2*avg_num_pkts))
-					print("Size difference per packet: {}".format(pkt_size_padding))
-				elif param == 'exp':
-					for t in traces:
-						for p in t:
-							if p.size <= 1:
-								p.size = 1
-							elif p.size == 2:
-								p.size = 2
-							elif p.size <= 4:
-								p.size = 4
-							else:
-								div_val = np.log2(float(p.size))
-								div_val = np.ceil(div_val)
-								p.size = int(min(np.power(2, div_val), 1500))
-				elif param == 'inject':
-					max_num_pkts = max([len(t) for t in traces])
-					avg_num_pkts = np.mean([len(t) for t in traces])
-					pkt_diff = int(2*(max_num_pkts - avg_num_pkts))
-					#new_traces = copy.deepcopy(mod_traces)
-					for ind,t in enumerate(traces):
-						rand_val = random.randint(0, pkt_diff)
-						for _ in range(rand_val):
-							rand_loc = random.randint(1, len(t)-1)
-							rand_pkt = random.randint(1, len(t)-1)
-							pkt = copy.deepcopy(t[rand_pkt])
-							pkt.size = random.randint(1, MAX_VAL)
-							#pkt.time = t[rand_loc-1].time
-							traces[ind].insert(rand_loc, pkt)
-				elif param == 'uniform':
-					for t in traces:
-						for p in t:
-							if p.size >= MTU:
-								p.size = MTU
-							else:
-								p.size = random.randint(p.size+1, MTU)
-				elif param == 'uniform255':
-					for t in traces:
-						for p in t:
-							p.size += random.randint(1, 255)
-							if p.size > MTU: p.size = MTU
-				elif param == 'mice-elephants':
-					for t in traces:
-						for p in t:
-							if p.size <= 100: p.size = 100
-							else: p.size = MTU
-				elif param == 'linear':
-					for t in traces:
-						for p in t:
-							div_val = int(p.size/128)
-							p.size = int(min((div_val+1)*128, MTU))
-				elif param == 'mtu':
-					for t in traces:
-						for p in t:
-							p.size = MTU
-				elif param == 'p100':
-					for t in traces:
-						for p in t:
-							if p.size <= 100: p.size = 100
-							elif p.size <= 200: p.size = 200
-							elif p.size <= 300: p.size = 300
-							elif p.size < 999: p.size = random.randint(p.size+1, 1000)
-							elif p.size <= 1399: p.size = random.randint(p.size+1, 1400)
-							else: p.size = MTU
-				elif param == 'p500':
-					for t in traces:
-						for p in t:
-							if p.size <= 500: p.size = 500
-							elif p.size < 999: p.size = random.randint(p.size+1, 1000)
-							elif p.size <= 1399: p.size = random.randint(p.size+1, 1400)
-							else: p.size = MTU
-				elif param == 'p700':
-					for t in traces:
-						for p in t:
-							if p.size <= 700: p.size = 700
-							elif p.size < 999: p.size = random.randint(p.size+1, 1000)
-							elif p.size <= 1399: p.size = random.randint(p.size+1, 1400)
-							else: p.size = MTU
-				elif param == 'p900':
-					for t in traces:
-						for p in t:
-							if p.size <= 900: p.size = 900
-							elif p.size < 999: p.size = random.randint(p.size+1, 1000)
-							elif p.size <= 1399: p.size = random.randint(p.size+1, 1400)
-							else: p.size = MTU
-				else:
-					pkt_size_padding = int(param)
-					if pkt_size_padding > 0:
-						for t in traces:
-							for p in t:
-								p.size = p.size + random.randint(0,pkt_size_padding)
-								if p.size > 1500:
-									p.size = 1500
-			elif 'full trace, in direction' in location:
-				src_ip, dst_ip = cls.extract_location(location)
-				pkt_size_padding = None
-				if param is None:
-					list_sizes = [sum([p.size for p in t if p.src == src_ip and p.dst == dst_ip]) for t in traces]
-					size_difference = np.mean(list_sizes) - min(list_sizes)
-					list_num_pkts = [len([p for p in t if p.src == src_ip and p.dst == dst_ip]) for t in traces]
-					avg_num_pkts = np.mean(list_num_pkts)
-					pkt_size_padding = int(size_difference/(2*avg_num_pkts))
-					print("Size difference per packet: {}".format(pkt_size_padding))
-				elif param == 'exp':
-					for t in traces:
-						for p in t:
-							if p.src != src_ip or p.dst != dst_ip:
-								continue
-							if p.size <= 1:
-								p.size = 1
-							elif p.size == 2:
-								p.size = 2
-							elif p.size <= 4:
-								p.size = 4
-							else:
-								div_val = np.log2(float(p.size))
-								div_val = np.ceil(div_val)
-								p.size = int(min(np.power(2, div_val), 1500))
-				elif param == 'inject':
-					max_num_pkts = max([len([p for p in t if p.src == src_ip and p.dst == dst_ip]) for t in traces])
-					avg_num_pkts = np.mean([len([p for p in t if p.src == src_ip and p.dst == dst_ip]) for t in traces])
-					pkt_diff = int(2*(max_num_pkts - avg_num_pkts))
-					#new_traces = copy.deepcopy(mod_traces)
-					for ind,t in enumerate(traces):
-						rand_val = random.randint(0, pkt_diff)
-						for _ in range(rand_val):
-							rand_loc = random.randint(1, len(t)-1)
-							rand_pkt = random.randint(1, len(t)-1)
-							pkt = copy.deepcopy(t[rand_pkt])
-							pkt.size = random.randint(1, MAX_VAL)
-							pkt.src = src_ip
-							pkt.dst = dst_ip
-							#pkt.time = t[rand_loc-1].time
-							traces[ind].insert(rand_loc, pkt)
-				elif param == 'uniform':
-					for t in traces:
-						for p in t:
-							if p.src == src_ip and p.dst == dst_ip:
-								if p.size >= MTU:
-									p.size = MTU
-								else:
-									p.size = random.randint(p.size+1, MTU)
-				elif param == 'uniform255':
-					for t in traces:
-						for p in t:
-							if p.src == src_ip and p.dst == dst_ip:
-								p.size += random.randint(1, 255)
-								if p.size > MTU: p.size = MTU
-				elif param == 'mice-elephants':
-					for t in traces:
-						for p in t:
-							if p.src == src_ip and p.dst == dst_ip:
-								if p.size <= 100: p.size = 100
-								else: p.size = MTU
-				elif param == 'linear':
-					for t in traces:
-						for p in t:
-							if p.src == src_ip and p.dst == dst_ip:
-								div_val = int(p.size/128)
-								p.size = int(min((div_val+1)*128, MTU))
-				elif param == 'mtu':
-					for t in traces:
-						for p in t:
-							if p.src == src_ip and p.dst == dst_ip:
-								p.size = MTU
-				elif param == 'p100':
-					for t in traces:
-						for p in t:
-							if p.src == src_ip and p.dst == dst_ip:
-								if p.size <= 100: p.size = 100
-								elif p.size <= 200: p.size = 200
-								elif p.size <= 300: p.size = 300
-								elif p.size < 999: p.size = random.randint(p.size+1, 1000)
-								elif p.size <= 1399: p.size = random.randint(p.size+1, 1400)
-								else: p.size = MTU
-				elif param == 'p500':
-					for t in traces:
-						for p in t:
-							if p.src == src_ip and p.dst == dst_ip:
-								if p.size <= 500: p.size = 500
-								elif p.size < 999: p.size = random.randint(p.size+1, 1000)
-								elif p.size <= 1399: p.size = random.randint(p.size+1, 1400)
-								else: p.size = MTU
-				elif param == 'p700':
-					for t in traces:
-						for p in t:
-							if p.src == src_ip and p.dst == dst_ip:
-								if p.size <= 700: p.size = 700
-								elif p.size < 999: p.size = random.randint(p.size+1, 1000)
-								elif p.size <= 1399: p.size = random.randint(p.size+1, 1400)
-								else: p.size = MTU
-				elif param == 'p900':
-					for t in traces:
-						for p in t:
-							if p.src == src_ip and p.dst == dst_ip:
-								if p.size <= 900: p.size = 900
-								elif p.size < 999: p.size = random.randint(p.size+1, 1000)
-								elif p.size <= 1399: p.size = random.randint(p.size+1, 1400)
-								else: p.size = MTU
-				else:
-					pkt_size_padding = int(param)
-					if pkt_size_padding > 0:
-						for t in traces:#TODO Add search for modifying total size
-							for p in t:
-								if p.src == src_ip and p.dst == dst_ip:
-									p.size = p.size + random.randint(0,pkt_size_padding)
-									if p.size > 1500:
-										p.size = 1500
-		elif 'Mean of sizes in' in tag: #Mean of sizes in LOCATION #AGGREGATE
-			location = ' '.join(tag.split()[4:])
-			if 'full trace, both directions' in location:
-				pass
-			elif 'full trace, in direction'  in location:
-				pass
-		elif 'Std.dev. of sizes in' in tag: #Std.dev. of sizes in LOCATION #AGGREGATE
-			location = ' '.join(tag.split()[4:])
-			if 'full trace, both directions' in location:
-				pass
-			elif 'full trace, in direction'  in location:
-				pass
-		###TIMING SIDE-CHANNELS
-		elif 'Timing delta between first and last packet in' in tag or 'Avg of deltas in' in tag or 'Std.dev. of deltas in' in tag or 'Maximum of deltas in' in tag or 'Minimum of deltas in' in tag: #Timing delta between first and last packet in LOCATION
-			#location = ' '.join(tag.split()[8:]) #'full trace, both directions' in location or 'full trace, in direction' in location:
-			if param == '20ms':
-				for t in traces:
-					len_t = len(t)
-					for ind, p in enumerate(t):
-						rand_delay = np.random.uniform(0,0.020)
-						p.time += rand_delay
-						if ind != len_t-1:
-							for px in t[ind+1:]:
-								px.time += rand_delay
-			elif param == '10ms':
-				for t in traces:
-					len_t = len(t)
-					for ind, p in enumerate(t):
-						rand_delay = np.random.uniform(0,0.010)
-						p.time += rand_delay
-						if ind != len_t-1:
-							for px in t[ind+1:]:
-								px.time += rand_delay
-			else:
-				avg_time_delay = 0.0
-				time_delay_count = 0
-				for tr in traces:
-					average_delay = 0.0
-					count = 0
-					for p_ind, p in enumerate(tr[:-1]):
-						delay = tr[p_ind+1].time - tr[p_ind].time
-						average_delay += delay
-						count += 1
-					average_delay = average_delay/float(count)
-					average_delay = average_delay/2.0
-
-					if average_delay > param: #0.400:
-						average_delay = param #0.400
-
-					for p_ind, p in enumerate(tr):
-						delay = 0
-						if p_ind == len(tr) - 1:
-							delay = np.abs(np.random.uniform(0.0,average_delay))
-							p.time += delay
-						else:
-							next_p = tr[p_ind]
-							if p.src == next_p.dst and p.dst == next_p.src:
-								delay = np.abs(np.random.uniform(0.0,average_delay))
-								for x, pkt in enumerate(tr[p_ind:]):
-									pkt.time += delay + x*np.abs(np.random.uniform(0.0,0.010))
-								#Keep the delta, add cumulative noise shifting all packets
-							else:
-								delay = np.random.uniform(0.0, next_p.time-p.time)
-								p.time += delay #np.random.uniform(p.time, next_p.time)
-						avg_time_delay += delay
-						time_delay_count += 1
-				#print('Average delay per packet: {}'.format(avg_time_delay/time_delay_count))
-			if False:
-				src_ip, dst_ip = cls.extract_location(location)
-				pass
-		elif 'Timing delta between packets' in tag: #Timing delta between packets 1,2 in LOCATION
-			location = ' '.join(tag.split()[8:])
-			#Similar to size of pkt i, equalize this measure by padding them
-			indices = tag.split()[4]
-			ind1 = int(indices.split(",")[0])
-			ind2 = int(indices.split(",")[1])
-			if 'full trace, both directions' in location or 'full trace, in direction' in location:
-				for t in traces:
-					delay_val = random.uniform(0, 0.100)
-					for i, p in enumerate(t):
-						if i >= ind2:
-							p.time += delay_val
-			if False:
-				src_ip, dst_ip = cls.extract_location(location)
-				pass
-		elif 'Minimum of deltas in' in tag: #Minimum of deltas in LOCATION
-			location = ' '.join(tag.split()[4:])
-			#TODO Similar to minimum sizes, delay packets to equalize this
-			if 'full trace, both directions' in location:
-				pass
-			elif 'full trace, in direction'  in location:
-				src_ip, dst_ip = cls.extract_location(location)
-				pass
-		elif 'Maximum of deltas in' in tag: #Maximum of deltas in LOCATION
-			location = ' '.join(tag.split()[4:])
-			#TODO Similar to maximum sizes, delay packets to equalize this
-			if 'full trace, both directions' in location:
-				pass
-			elif 'full trace, in direction'  in location:
-				src_ip, dst_ip = cls.extract_location(location)
-				pass
-		elif 'Avg of deltas in' in tag: #Avg of deltas in LOCATION
-			location = ' '.join(tag.split()[4:])
-			if 'full trace, both directions' in location:
-				pass
-			elif 'full trace, in direction' in location:
-				src_ip, dst_ip = cls.extract_location(location)
-				pass
-		elif 'Std.dev. of deltas in' in tag: #Std.dev. of deltas in LOCATION
-			location = ' '.join(tag.split()[4:])
-			if 'full trace, both directions' in location:
-				pass
-			elif 'full trace, in direction' in location:
-				src_ip, dst_ip = cls.extract_location(location)
-				pass
-	
-		return traces
-
-	@classmethod
-	def targeted_defense(cls, traces, trace_filename, weights, calculate_bounds = False):
-		#SETTING THE INITIAL PARAMETERS
-		calcSpace = True
-		calcTime = True
-		pre_time = time.time()
-		rep_count = 1
-		alignment = False
-		silence = True
-		options_leakage = []
-		feature_reduction = None
-		#classifier = 'kde-dynamic'
-		classifier = 'rf-classifier'
-		print('Feature Reduction Method: {}'.format(feature_reduction))
-
-		w_leakage = weights[0] #1.0
-		w_overhead = weights[1] #0.1
-		w_toverhead = weights[2] #0.0
-		min_objective_fn = 1000
-
-		#Pruning packets with size > 1500, don't know how that's possible. #Change this so that either we merge all packets or split all packets, it's inconsistent right now.
-		full_traces = []
-		for t in traces:
-			new_t = []
-			for p in t:
-				if p.size <= 1500:
-					new_t.append(p)
-				elif p.size > 1500:
-					old_size = p.size
-					while old_size > 1500:
-						new_p = copy.deepcopy(p)
-						old_size = old_size - 1500
-						new_p.size = 1500
-						new_t.append(new_p)
-					new_p = copy.deepcopy(p)
-					new_p.size = old_size
-					new_t.append(new_p)
-			if len(new_t) > 0:
-				full_traces.append(new_t)
-
-		print(len(traces))
-		print(len(full_traces))
-		print("Trace length distribution: {}".format(set([len(t) for t in traces])))
-		print('Number of packets with size > 1500 per trace:', sum([ len([p for p in tr if p.size > 1500]) for tr in traces])/float(len(traces)))
-		print('Number of packets with size > 1500 per trace in pruned traces:', sum([ len([p for p in tr if p.size > 1500]) for tr in full_traces])/float(len(full_traces)))
-		print('Number of traces with 1 packets per trace:', sum([ 1 for t in traces if len(t) <= 1]))
-
-		test_traces = []
-		train_traces = []
-
-		labels = Transform.rd_secrets(full_traces)
-		labels_list = list(set(labels))
-		numbers_list = list(range(len(labels_list)))
-		labels_to_numbers = {k: v for k, v in zip(labels_list, numbers_list)}
-		traces_per_label = [[] for _ in labels_list]
-		
-		print('Set of labels: {}'.format(labels_list))
-
-		for l, tr in zip(labels, full_traces):
-			ind = labels_to_numbers[l]
-			traces_per_label[ind].append(tr)
-		for l in labels_list:
-			ind = labels_to_numbers[l]
-			list_length = len(traces_per_label[ind])
-			train_traces += traces_per_label[ind][:int(list_length/2)]
-			test_traces  += traces_per_label[ind][int(list_length/2):]
-		print('Number of full traces: {}'.format(len(full_traces)))
-		print('Number of train/test traces: {}, {}'.format(len(train_traces), len(test_traces)))
-		#Divide traces to labels, send equal to both parts
-
-		import warnings
-		warnings.filterwarnings("ignore")
-
-		#INITIAL RUN FOR NO-PADDING
-		quant_time = time.time()
-		print('Classifier: {}'.format(classifier))
-		classifier1 = 'rf-classifier' #'kde-dynamic'
-		(labels, features, tags, orig_leakage, feature_importance) = cls.process_all(interactions=train_traces, pcap_filename=None, calcSpace=calcSpace, calcTime=calcTime, quant_mode=classifier1, window_size=None, 
-		feature_reduction=feature_reduction, num_reduced_features=10, alignment=alignment, new_direction=False, silent=False)
-
-		print("INITIAL QUANT TIME: {:.2f} seconds".format(time.time()-quant_time))
-		options_leakage.append(('No-mitigation', orig_leakage, 0.0, 0.0))
-		target_tags = [x[1] for x in feature_importance]
-
-		print("ALL FEATURES: {}".format(target_tags))
-
-		if calculate_bounds:
-			accuracy_bound = cls.calculate_bayes_error(labels, features, tags, target_tags)
-			print('Accuracy Bound for Option {}: {:.2f}'.format('No-mitigation', accuracy_bound))
-
-		print('Leakage for Option {}: {:.2f}'.format('No-mitigation', orig_leakage))
-		print('Overhead for Option {}: {:.2f}'.format('No-mitigation', 0.0))
-		print('Time Overhead for Option {}: {:.2f}'.format('No-mitigation', 0.0))
-		print('RANDOM GUESS ACCURACY for {} classes: {:.2f}'.format(len(labels_list), 1.0/len(labels_list)))
-		print('='*40)
-		print('%'*40)
-
-		min_objective_fn = w_leakage*1.0 + w_overhead*0.0 + w_toverhead*0.0
-
-		total_size_orig = 0
-		total_time_orig = 0.0
-		for t in train_traces:
-			total_time_orig += abs(t[-1].time - t[0].time)
-			for p in t:
-				total_size_orig += p.size
-
-		#Loop for Mitigation Strategy Synthesis
-		non_improvement_count = 0
-		non_improvement_limit = 20
-		old_target_tags = set()
-		t_traces = copy.deepcopy(train_traces) #T
-
-		for i in range(len(target_tags)):
-			#Step 1: Target top feature, use distribution to find the padding style, distribute it to the packets if aggregate
-			#Select top feature
-			tag = None
-			if w_toverhead < 10:
-				for t in target_tags:
-					if t not in old_target_tags: #"Mean" not in t and "Avg" not in t and "Std" not in t and "delta" not in t and 
-						tag = t
-						break
-			else:
-				for t in target_tags:
-					if t not in old_target_tags and "delta" not in t: #"Mean" not in t and "Avg" not in t and "Std" not in t and "delta" not in t and 
-						tag = t
-						break
-			if tag is None:
-				print("Went over all the tags, early termination!")
-				return None
-			old_target_tags.add(tag)
-			
-			#Modify Trace
-			new_traces_list = []
-			if 'Sum of sizes in' in tag:
-				for param in [None, 50, 100, 150, 200, 250, 'inject', 'exp', 'linear', 'uniform', 'uniform255', 'mice-elephants', 'mtu', 'p100', 'p500', 'p700', 'p900']:
-					print("Targeting tag: {}, parameter: {}".format(tag, param))
-					new_traces = cls.modify(copy.deepcopy(t_traces), tag, param) # T' = modify(T, feature)
-					new_traces_list.append(new_traces)
-			elif 'Timing delta between first and last packet in' in tag or 'Avg of deltas in' in tag or 'Std.dev. of deltas in' in tag or 'Maximum of deltas in' in tag or 'Minimum of deltas in' in tag:
-				for param in ['10ms', '20ms', 0.010, 0.020, 0.050, 0.100, 0.200, 0.300]:
-					print("Targeting tag: {}, parameter: {}".format(tag, param))
-					new_traces = cls.modify(copy.deepcopy(t_traces), tag, param) # T' = modify(T, feature)
-					new_traces_list.append(new_traces)
-			else:
-				print("Targeting tag: {}".format(tag))
-				new_traces = cls.modify(copy.deepcopy(t_traces), tag, None) # T' = modify(T, feature)
-				new_traces_list.append(new_traces)
-
-			for new_traces in new_traces_list:
-				#Step 2: Quantify and Check if the modification improves the privacy
-				avg_leakage = 0.0
-				for rep in range(rep_count):
-					(labels, features, tags, leakage, feature_importance) = cls.process_all(interactions=new_traces, pcap_filename=None, calcSpace=calcSpace, calcTime=calcTime, quant_mode=classifier, window_size=None, 
-					feature_reduction=feature_reduction, num_reduced_features=10, alignment=alignment, new_direction=False, silent=silence)
-					avg_leakage += float(leakage)/rep_count
-
-
-				#target_tags = [x[1] for x in feature_importance]
-				#Calculating the Average Overhead against the original traces
-				total_size_mod = 0
-				total_time_mod = 0.0
-				for t in new_traces:
-					total_time_mod += abs(t[-1].time - t[0].time)
-					for p in t:
-						total_size_mod += p.size
-
-				overhead_mod = float(total_size_mod-total_size_orig)/float(total_size_orig)
-				t_overhead_mod = float(total_time_mod-total_time_orig)/float(total_time_orig)
-				#abs_overhead_mod += float(total_size_mod-total_size_orig)/(len(mod_traces)*float(rep_count))
-
-				if overhead_mod < 0:
-					print("OVERHEAD less than 0!")
-					overhead_mod = 0.0
-				if t_overhead_mod < 0:
-					print("TIME OVERHEAD less than 0!")
-					t_overhead_mod = 0.0
-				objective_fn = w_leakage*avg_leakage + w_overhead*overhead_mod + w_toverhead*t_overhead_mod
-
-				#Save the results and print to screen
-				method_name = 'Targeted_Mitigation_Step_{}'.format(i)
-				options_leakage.append((method_name, avg_leakage, overhead_mod, t_overhead_mod))
-				#target_tags = [x[1] for x in feature_importance]
-
-				#Bound calculation???
-				#if calculate_bounds:
-				#	accuracy_bound = cls.calculate_bayes_error(labels, features, tags, target_tags)
-				#	print('Accuracy Bound for Option {}: {:.2f}'.format(method_name, accuracy_bound))
-
-				print('Total size: {}, Original size: {}'.format(total_size_mod, total_size_orig))
-				print('Total time: {}, Original time: {}'.format(total_time_mod, total_time_orig))
-
-				print('Leakage for Option {}: {:.2f}'.format(method_name, avg_leakage))
-				print('Overhead for Option {}: {:.2f}'.format(method_name, overhead_mod))
-				print('Time Overhead for Option {}: {:.2f}'.format(method_name, t_overhead_mod))
-				print('ObjectiveFN for Option {}: {:.2f}'.format(method_name, objective_fn))
-				
-				if objective_fn < min_objective_fn:
-					t_traces = copy.deepcopy(new_traces) #T <- T'
-					min_objective_fn = objective_fn 
-					non_improvement_count = 0
-					print("Improving minimization of the Objective Function {}*leakage + {}*space + {}*time".format(w_leakage, w_overhead, w_toverhead))
-				else:
-					non_improvement_count += 1
-					print("Not improving minimization, count: {}".format(non_improvement_count))
-			
-			if non_improvement_count >= non_improvement_limit:
-				print("Early Termination!")
-				return None
-			print('='*40)
-			
 	
 ###################################################################################
 

@@ -386,7 +386,7 @@ class Utils(object):
 
 		# We're not keeping the load in memory unless it's a marker because it's encrypted.
 		# We only need the size and timing.
-		load = load if flags == 'M' else ''
+		load = load if flags == 'M' or 'INTERACTION' in load or 'STOP' in load or 'PHASE' in load else ''
 
 		p_new = Packet(src, dst, sport, dport, load, size, time, flags)
 		#print(p_new)
@@ -592,7 +592,7 @@ class Transform(object):
 			return floats
 
 	@classmethod
-	def rd_extract_features(cls, phase, tag, calcSpace=True, calcTime=True, padding=False):
+	def rd_extract_features(cls, phase, tag, calcSpace=True, calcTime=True, padding=False, bag_of_words_flag = False):
 		#Phase contains a list of packets.
 
 		#Use that to create phase lists for this file, also do N consecutive phase combination to feed this function.
@@ -605,7 +605,6 @@ class Transform(object):
 		time_tags = []
 
 		padding = False
-		bag_of_words_flag = False
 
 		#Extracting features
 		if calcSpace:
@@ -1664,7 +1663,10 @@ class Sniffer(threading.Thread):
 
 	def describe_packet(self, p):
 		'''Returns a string one-liner describing p.'''
-		if p.haslayer('TCP'):
+		if p.haslayer('Raw') and p.getlayer('Raw').load.decode('latin1').startswith('INTERACTION'):
+			line = p.sprintf("%time%   %16s,IP.src%  %16s,IP.dst%  %8s,TCP.sport% %8s,TCP.dport%  %5s,TCP.flags%")
+			load = "%9s b" % p['UDP'].payload if p['UDP'].payload else ""
+		elif p.haslayer('TCP'):	
 			# PEND: Does this change if we use .payload.load instead of .payload?
 			line = p.sprintf("%time%   %16s,IP.src%  %16s,IP.dst%  %8s,TCP.sport% %8s,TCP.dport%  %5s,TCP.flags%")
 			load = "%9s b" % len(p['TCP'].payload) if p['TCP'].payload else ""
