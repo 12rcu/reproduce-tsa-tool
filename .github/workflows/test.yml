@@ -10,7 +10,6 @@ on:
 
 jobs:
   test-image:
-    needs: build-image
     runs-on: ubuntu-latest
     container:
       12build/tsa:latest
