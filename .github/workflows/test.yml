@@ -11,11 +11,15 @@ on:
 jobs:
   test-image:
     runs-on: ubuntu-latest
-    container:
-      12build/tsa:latest
     steps:
-      - name: Check for dockerenv file
-        run: (ls /.dockerenv && echo Found dockerenv) || (echo No dockerenv)
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v2
+
+      - name: Pull Docker image
+        run: docker pull 12build/tsa:latest
 
       - name: Start Docker container and capture logs
         id: run_container
