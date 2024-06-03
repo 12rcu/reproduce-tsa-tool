@@ -35,3 +35,6 @@ jobs:
     runs-on: ubuntu-latest
     container:
       12build/tsa:latest
+    steps:
+      - name: Check for dockerenv file
+        run: (ls /.dockerenv && echo Found dockerenv) || (echo No dockerenv)
