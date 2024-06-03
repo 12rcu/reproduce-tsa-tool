@@ -1,6 +1,8 @@
-on: push
-
 name: build
+
+on:
+  release:
+    types: [ published ]
 
 jobs:
   build-image:
