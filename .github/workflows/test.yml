@@ -33,10 +33,3 @@ jobs:
           # Capture the logs from the container
           logs=$(docker logs $container_id)
           echo "$logs"
-          
-          # Save the logs to a GitHub Actions output variable
-          echo "::set-output name=container_logs::$logs"
-
-      - name: Check logs
-        run: |
-          echo "Container logs: ${{ steps.run_container.outputs.container_logs }}"
