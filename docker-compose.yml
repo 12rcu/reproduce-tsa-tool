@@ -1,0 +1,4 @@
+services:
+  tsa:
+    container_name: tsa
+    build: .
