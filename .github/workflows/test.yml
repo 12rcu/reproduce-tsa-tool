@@ -16,3 +16,23 @@ jobs:
     steps:
       - name: Check for dockerenv file
         run: (ls /.dockerenv && echo Found dockerenv) || (echo No dockerenv)
+
+      - name: Start Docker container and capture logs
+        id: run_container
+        run: |
+          # Start the container in detached mode and capture the container ID
+          container_id=$(docker run -d 12build/tsa:latest)
+          
+          # Wait for the container to finish execution
+          docker wait $container_id
+          
+          # Capture the logs from the container
+          logs=$(docker logs $container_id)
+          echo "$logs"
+          
+          # Save the logs to a GitHub Actions output variable
+          echo "::set-output name=container_logs::$logs"
+
+      - name: Check logs
+        run: |
+          echo "Container logs: ${{ steps.run_container.outputs.container_logs }}"
