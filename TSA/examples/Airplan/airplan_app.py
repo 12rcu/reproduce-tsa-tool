@@ -4,8 +4,8 @@ import requests
 
 from tsa import Sniffer
 
-import genmap
-from airplan_client import AirPlanClient
+from . import genmap
+from .airplan_client import AirPlanClient
 
 from tsa.new_stac import StacPlatform, StacContainer, ChallengeProgramDriver, App
 

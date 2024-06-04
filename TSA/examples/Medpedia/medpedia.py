@@ -3,7 +3,7 @@ from collections import Counter
 from itertools import chain, combinations
 
 from tsa.mutation import AppInput, AppInputMutator
-from medpedia_client import MedpediaClient
+from .medpedia_client import MedpediaClient
 
 DEBUG_MUTATORS = False
 SERVER_HOST = 'serverNuc'

@@ -24,12 +24,6 @@ jobs:
       - name: Start Docker container and capture logs
         id: run_container
         run: |
-          # Start the container in detached mode and capture the container ID
-          container_id=$(docker run -d 12build/tsa:latest)
-          
-          # Wait for the container to finish execution
-          docker wait $container_id
-          
-          # Capture the logs from the container
-          logs=$(docker logs $container_id)
-          echo "$logs"
+          docker compose up -d
+          docker wait tsa
+          echo $(docker logs tsa)

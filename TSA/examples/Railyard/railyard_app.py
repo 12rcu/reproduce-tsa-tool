@@ -4,7 +4,7 @@ from collections import Counter
 import requests
 requests.packages.urllib3.disable_warnings(requests.packages.urllib3.exceptions.InsecureRequestWarning)
 
-from railyard import RailyardInput
+from .railyard import RailyardInput
 
 from tsa import sniffer
 from tsa.new_stac import StacPlatform, StacContainer, App

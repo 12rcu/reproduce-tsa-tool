@@ -9,11 +9,11 @@ import docker
 
 import tsa as sniffer
 
-import genmap
-from snapbuddy_client import SnapCaller
-from snapbuddy import SnapbuddyInput
+import Airplan.genmap
+from .snapbuddy_client import SnapCaller
+from .snapbuddy import SnapbuddyInput
 
-from new_stac import StacPlatform, StacContainer, ChallengeProgramDriver, App
+from tsa.new_stac import StacPlatform, StacContainer, ChallengeProgramDriver, App
 
 class SnapbuddyApp(App):
 

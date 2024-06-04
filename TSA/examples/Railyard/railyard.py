@@ -2,7 +2,7 @@ import random, copy, string
 from collections import Counter
 from itertools import chain, combinations
 
-from mutation import AppInput, AppInputMutator
+from tsa.mutation import AppInput, AppInputMutator
 
 
 # We only model platform A for now. This simplifies stateless execution.

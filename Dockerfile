@@ -2,13 +2,15 @@ FROM python:3.7
 WORKDIR /app
 COPY . .
 WORKDIR /app/TSA
-RUN pip install docker  \
+RUN pip install docker \
 scapy \
 numpy \
 scipy \
 matplotlib \
-scikit-learn
+scikit-learn \
+lxml
 
 RUN pip install . --user
 
-ENTRYPOINT ["python", "./examples/run_stac_examples.py"]
+WORKDIR /app/TSA/examples
+ENTRYPOINT ["python", "-m", "run_stac_examples"]

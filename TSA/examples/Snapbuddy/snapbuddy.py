@@ -1,12 +1,13 @@
+import os
 import random, copy, uuid, string, itertools
 from collections import Counter
 
-from mutation import AppInput, AppInputMutator
+from tsa.mutation import AppInput, AppInputMutator
 
 city2bssids = {}
 citylist = []
 
-with open('cities', 'r') as citiesfile:
+with open(os.getcwd() + '/Snapbuddy/cities.txt', 'r') as citiesfile:
 	for line in citiesfile:
 		line = line.strip()
 		if '","' in line:

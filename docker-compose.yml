@@ -1,4 +1,5 @@
 services:
   tsa:
     container_name: tsa
-    build: .
+    image: 12build/tsa:latest
+    #build: .
