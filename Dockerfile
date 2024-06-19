@@ -8,7 +8,8 @@ numpy \
 scipy \
 matplotlib \
 scikit-learn \
-lxml
+lxml \
+beautifulsoup4
 
 RUN pip install . --user
 
