@@ -3,7 +3,7 @@ import time, os
 import requests
 requests.packages.urllib3.disable_warnings(requests.packages.urllib3.exceptions.InsecureRequestWarning)
 
-from medpedia_client import MedpediaClient
+from Medpedia.medpedia_client import MedpediaClient
 
 from tsa import Sniffer
 from tsa.new_stac import StacPlatform, StacContainer, App
@@ -26,8 +26,8 @@ class MedpediaApp(App):
 		self.pcapfilename = self._makeoutputfilename('.pcap')
 		self.tssfilename = self._makeoutputfilename('.tss')
 		#print(self._makebanner("EXPERIMENT: " + self.expname, self.params)
-		self.serverhost = 'serverNuc'
-		#self.serverhost = 'localhost'
+		#self.serverhost = 'serverNuc'
+		self.serverhost = 'localhost'
 		self.ports = ports
 		self.sniffer = None
 		self.run_counter = 0
